@@ -40,7 +40,7 @@ def get_vod_info(vod_id, contexto="recorde"):
         "url": data["url"]
     }
 
-def get_adjacent_vods_by_date(user_login, vod_id_recorde, days_before=3, days_after=3):
+def get_adjacent_vods_by_date(user_login, vod_id_recorde, days_before=5, days_after=5):
     """Busca VODs dentro da janela temporal antes e depois do recorde, com paginação."""
     user_resp = requests.get(f"https://api.twitch.tv/helix/users?login={user_login}", headers=headers)
     user_id = user_resp.json()["data"][0]["id"]
@@ -89,7 +89,7 @@ def get_adjacent_vods_by_date(user_login, vod_id_recorde, days_before=3, days_af
     return sorted(selected, key=lambda x: x["data_criacao"])
 
 def collect_twitch_data():
-    dados = get_adjacent_vods_by_date(usuario_login, vod_id_recorde, days_before=3, days_after=3)
+    dados = get_adjacent_vods_by_date(usuario_login, vod_id_recorde, days_before=5, days_after=5)
     df = pd.DataFrame(dados)
     df.to_csv(output_file, index=False, encoding='utf-8')
     print(f"{len(df)} VODs coletados e salvos em {output_file}")
