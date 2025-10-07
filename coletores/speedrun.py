@@ -1,21 +1,18 @@
 import requests
 import csv
 from datetime import datetime, timedelta
-from pathlib import Path # Importa a biblioteca pathlib
+from pathlib import Path
 
 # --- Configuração ---
 GAME_NAME = "Elden Ring"
-CATEGORY_NAME = "Any%" # Variável definida corretamente aqui
-VARIABLE_NAME = "Any% - Subcategories"
-VALUE_LABEL = "Glitchless"
+CATEGORY_NAME = "Any%" 
+VARIABLE_NAME = "Any% - Subcategories" # nome da variável que define a sub-categoria
+VALUE_LABEL = "Glitchless" # valor específico da variável para filtrar
 
-# O local de salvamento permanece inalterado, como solicitado
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_FILE = SCRIPT_DIR.parent / "1-coleta" / "speedrun_stats.csv"
 
-# --- Funções de API (Sem alterações) ---
-
-def get_api_data(url):
+def get_api_data(url): # função que se comunica com o site
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -24,19 +21,19 @@ def get_api_data(url):
         print(f"Erro crítico ao acessar a API na URL: {url}")
         raise e
 
-def get_game_id(game_name):
+def get_game_id(game_name): # pega a id do game baseado em seu nome
     data = get_api_data(f"https://www.speedrun.com/api/v1/games?name={game_name}")['data']
     if not data: raise ValueError(f"Jogo '{game_name}' não encontrado.")
     return data[0]["id"]
 
-def get_category_id(game_id, category_name):
+def get_category_id(game_id, category_name): # usando o game_id, pega o id da categoria
     data = get_api_data(f"https://www.speedrun.com/api/v1/games/{game_id}/categories")['data']
     for cat in data:
         if cat["name"].lower() == category_name.lower():
             return cat["id"]
     raise ValueError(f"Categoria '{category_name}' não encontrada.")
 
-def get_variable_info(category_id, variable_name, value_label):
+def get_variable_info(category_id, variable_name, value_label): # pega o id da variável subcategories e do valor específico para glitchless
     all_vars_data = get_api_data(f"https://www.speedrun.com/api/v1/categories/{category_id}/variables")['data']
     for var in all_vars_data:
         if var["name"].lower() == variable_name.lower():
@@ -49,7 +46,7 @@ def get_variable_info(category_id, variable_name, value_label):
 def fetch_all_runs_for_category(game_id, category_id):
     all_runs = []
     base_url = (f"https://www.speedrun.com/api/v1/runs?game={game_id}&category={category_id}"
-                f"&status=verified&obsoleted=true"
+                f"&status=verified&obsoleted=true" #runs verificadas e obsoletas para pegar o histórico completo
                 f"&orderby=date&direction=asc&embed=players")
     url = base_url
     while url:
@@ -68,7 +65,7 @@ def format_time(seconds):
     time_str = str(delta)
     return time_str[:-3] if '.' in time_str else time_str
 
-def analisar_progressao_recorde(runs_ordenadas, target_var_id, target_val_id, target_val_label):
+def analisar_progressao_recorde(runs_ordenadas, target_var_id, target_val_id, target_val_label): #filtra as runs pela sub-categoria desejada e analisa a progressão de recordes na categoria
     historico, melhor_tempo = [], float('inf')
     
     runs_filtradas_localmente = [
@@ -104,10 +101,8 @@ def main():
         print(f"Procurando jogo '{GAME_NAME}'...")
         game_id = get_game_id(GAME_NAME)
         print(f"Procurando categoria '{CATEGORY_NAME}'...")
-        # --- AQUI ESTÁ A CORREÇÃO ---
-        # Alterado de CATEG_NAME para CATEGORY_NAME para corresponder à definição
+       
         category_id = get_category_id(game_id, CATEGORY_NAME)
-        # ---------------------------
         print(f"Buscando variável '{VARIABLE_NAME}' com valor '{VALUE_LABEL}'...")
         
         variable_id, value_id, value_label_found = get_variable_info(category_id, VARIABLE_NAME, VALUE_LABEL)
@@ -134,10 +129,10 @@ def main():
             writer.writeheader()
             writer.writerows(historico)
         
-        print(f"\n✅ Sucesso! O histórico de recordes foi salvo em '{OUTPUT_FILE}'.")
+        print(f"\nSUCESSO: O histórico de recordes foi salvo em '{OUTPUT_FILE}'.")
 
     except Exception as e:
-        print(f"\n❌ Erro: {e}")
+        print(f"\nERRO: {e}")
 
 if __name__ == "__main__":
     main()
