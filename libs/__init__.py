@@ -1,1 +1,0 @@
-#para o python entender que libs é um pacote
