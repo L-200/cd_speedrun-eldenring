@@ -57,7 +57,7 @@ def get_bilibili_stats(bvid_video, contexto):
         print(f"Erro de Conexão: {e}")
         return None
 
-def collect_bilibili_data_and_save():
+def main():
     """
     Define os BVIDs, mapeia o contexto (recorde/antes/depois), coleta os dados
     e salva o resultado em um arquivo CSV.
@@ -101,4 +101,4 @@ def collect_bilibili_data_and_save():
 
 # se chamar direto pelo script.py executa como main
 if __name__ == "__main__":
-    collect_bilibili_data_and_save()
+    main()

@@ -88,11 +88,11 @@ def get_adjacent_vods_by_date(user_login, vod_id_recorde, days_before=5, days_af
             })
     return sorted(selected, key=lambda x: x["data_criacao"])
 
-def collect_twitch_data_and_save():
+def main():
     dados = get_adjacent_vods_by_date(usuario_login, vod_id_recorde, days_before=5, days_after=5)
     df = pd.DataFrame(dados)
     df.to_csv(output_file, index=False, encoding='utf-8')
     print(f"{len(df)} VODs coletados e salvos em {output_file}")
 
 if __name__ == "__main__":
-    collect_twitch_data_and_save()
+    main()
