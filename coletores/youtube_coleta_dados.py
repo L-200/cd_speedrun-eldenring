@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 output_dir = "../1-coleta"
 os.makedirs(output_dir, exist_ok=True)
 speedrun_file = os.path.join(output_dir, "speedrun_stats.csv")
-final_analysis_file = os.path.join(output_dir, "youtube_full_impact_analysis.csv")
+final_analysis_file = os.path.join(output_dir, "youtube_stats.csv")
 
 # --- CRIAÇÃO DO CLIENTE DA API ---
 try:
