@@ -6,11 +6,10 @@ os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(output_dir, "bilibili_stats.csv")
 
 # carrega os headers para evitar o erro http 412 (so montar o user agent)
-try:
-    with open("bilibili_headers.json", "r") as f:
-        headers = json.load(f)
-except FileNotFoundError:
-    print("ERRO: O arquivo 'bilibili_headers.json' não foi encontrado.")
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+}
+
     
 def get_bilibili_stats(bvid_video, contexto):
     """
