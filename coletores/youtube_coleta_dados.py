@@ -56,7 +56,7 @@ def obter_estatisticas_youtube(video_url, youtube):
 # função para analisar o canal antes e depois do recorde
 def analisar_impacto_canal(youtube, channel_id, record_date_str, record_video_id):
     """
-    Busca vídeos 5 dias antes e 5 dias depois de uma data e agrega suas estatísticas.
+    Busca os 2 vídeos mais próximos antes e os 2 mais próximos depois
     """
     try:
         record_date = datetime.fromisoformat(record_date_str.replace('Z', '+00:00'))
@@ -74,8 +74,8 @@ def analisar_impacto_canal(youtube, channel_id, record_date_str, record_video_id
         }
 
         resultados = {
-            'Views_5d_Antes': 0, 'Likes_5d_Antes': 0, 'NumVideos_5d_Antes': 0,
-            'Views_5d_Depois': 0, 'Likes_5d_Depois': 0, 'NumVideos_5d_Depois': 0
+            'Views_Antes': 0, 'Likes_Antes': 0, 'NumVideos_Antes': 0,
+            'Views_Depois': 0, 'Likes_Depois': 0, 'NumVideos_Depois': 0
         }
 
         for periodo, (start_date, end_date) in periodos.items():
@@ -86,24 +86,33 @@ def analisar_impacto_canal(youtube, channel_id, record_date_str, record_video_id
                 publishedAfter=start_date,
                 publishedBefore=end_date,
                 type="video",
-                maxResults=50 # limite máximo por chamada
+                order="date", 
+                maxResults=5 
             )
             search_response = search_request.execute()
             
-            video_ids = []
+            found_video_ids = []
             for item in search_response.get('items', []):
                 video_id = item['id']['videoId']
                 # garante que não estamos incluindo o próprio vídeo do recorde na contagem
                 if video_id != record_video_id:
-                    video_ids.append(video_id)
+                    found_video_ids.append(video_id)
             
-            if not video_ids:
+            if not found_video_ids:
                 continue
+
+            if periodo == "antes":
+                # "Antes": Pega os 2 mais novos (mais próximos da data do recorde)
+                video_ids = found_video_ids[:2]
+            else: # "depois"
+                # "Depois": Pega os 2 mais antigos (mais próximos da data do recorde)
+                # A lista está ordenada do mais novo -> mais antigo, então pegamos os últimos
+                video_ids = found_video_ids[-2:]
 
             # pega as estatísticas dos vídeos encontrados
             stats_request = youtube.videos().list(
                 part="statistics",
-                id=",".join(video_ids)
+                id=",".join(video_ids) # O resto do código funciona com 'video_ids'
             )
             stats_response = stats_request.execute()
             
@@ -115,13 +124,13 @@ def analisar_impacto_canal(youtube, channel_id, record_date_str, record_video_id
             
             # salvando os resultados
             if periodo == "antes":
-                resultados['Views_5d_Antes'] = total_views
-                resultados['Likes_5d_Antes'] = total_likes
-                resultados['NumVideos_5d_Antes'] = len(video_ids)
+                resultados['Views_Antes'] = total_views
+                resultados['Likes_Antes'] = total_likes
+                resultados['NumVideos_Antes'] = len(video_ids)
             else: 
-                resultados['Views_5d_Depois'] = total_views
-                resultados['Likes_5d_Depois'] = total_likes
-                resultados['NumVideos_5d_Depois'] = len(video_ids)
+                resultados['Views_Depois'] = total_views
+                resultados['Likes_Depois'] = total_likes
+                resultados['NumVideos_Depois'] = len(video_ids)
         
         time.sleep(0.5) # pausa para não sobrecarregar a API
         return resultados
@@ -167,10 +176,13 @@ def main():
             video_id_match = re.search(r'(?<=v=)[\w-]+|(?<=be/)[\w-]+', video_url)
             record_video_id = video_id_match.group(0) if video_id_match else None
             
-            print(f"  -> Analisando impacto no canal {channel_id}...")
-            impacto_canal = analisar_impacto_canal(youtube_client, channel_id, published_at, record_video_id)
-            if impacto_canal:
-                current_run_data.update(impacto_canal)
+            if record_video_id: # Só prossiga se tivermos um ID de vídeo de recorde
+                print(f"  -> Analisando impacto no canal {channel_id}...")
+                impacto_canal = analisar_impacto_canal(youtube_client, channel_id, published_at, record_video_id)
+                if impacto_canal:
+                    current_run_data.update(impacto_canal)
+            else:
+                print(f"  -> Não foi possível extrair video_id de {video_url}. Pulando análise de impacto.")
         
         all_results.append(current_run_data)
 
@@ -179,16 +191,20 @@ def main():
     
     # calcular as métricas de Nível 1 (ViewsPerDay, etc.)
     print("\nCalculando métricas de performance do vídeo...")
-    df_final.dropna(subset=['Views', 'PublishedAt'], inplace=True)
+    # Verificação se 'Views' e 'PublishedAt' existem antes de dropar NA
+    if 'Views' in df_final.columns and 'PublishedAt' in df_final.columns:
+        df_final.dropna(subset=['Views', 'PublishedAt'], inplace=True)
     
-    df_final['PublishedAtDT'] = pd.to_datetime(df_final['PublishedAt'])
-    today_utc = pd.Timestamp.now(tz='UTC')
-    df_final['VideoAgeDays'] = (today_utc - df_final['PublishedAtDT']).dt.days
-    df_final['VideoAgeDays'] = df_final['VideoAgeDays'].apply(lambda x: 1 if x < 1 else x)
-    df_final['ViewsPerDay'] = df_final['Views'] / df_final['VideoAgeDays']
-    
-    total_engagement = df_final['Likes'].fillna(0) + df_final['Comments'].fillna(0)
-    df_final['EngagementRate'] = np.divide(total_engagement, df_final['Views'], out=np.zeros_like(total_engagement, dtype=float), where=df_final['Views']!=0) * 100
+        df_final['PublishedAtDT'] = pd.to_datetime(df_final['PublishedAt'])
+        today_utc = pd.Timestamp.now(tz='UTC')
+        df_final['VideoAgeDays'] = (today_utc - df_final['PublishedAtDT']).dt.days
+        df_final['VideoAgeDays'] = df_final['VideoAgeDays'].apply(lambda x: 1 if x < 1 else x)
+        df_final['ViewsPerDay'] = df_final['Views'] / df_final['VideoAgeDays']
+        
+        total_engagement = df_final['Likes'].fillna(0) + df_final['Comments'].fillna(0)
+        df_final['EngagementRate'] = np.divide(total_engagement, df_final['Views'], out=np.zeros_like(total_engagement, dtype=float), where=df_final['Views']!=0) * 100
+    else:
+        print("Colunas 'Views' ou 'PublishedAt' não encontradas. Pulando cálculos de performance.")
 
     # salvando o resultado final completo
     df_final.to_csv(final_analysis_file, index=False, encoding='utf-8')
@@ -196,13 +212,22 @@ def main():
     
     # exibe as colunas mais relevantes
     display_cols = [
-        'player', 'ViewsPerDay', 'Views_5d_Antes', 'Views_5d_Depois',
-        'NumVideos_5d_Antes', 'NumVideos_5d_Depois', 'CurrentSubscribers'
+        'player', 'ViewsPerDay', 'Views_Antes', 'Views_Depois',
+        'NumVideos_Antes', 'NumVideos_Depois', 'CurrentSubscribers'
     ]
     # filtra colunas que existem no dataframe para evitar erros
     display_cols_exist = [col for col in display_cols if col in df_final.columns]
-    print("\n--- Visualização do Resultado Final ---")
-    print(df_final.sort_values(by='ViewsPerDay', ascending=False)[display_cols_exist].head(10).to_string(index=False))
+    
+    if 'ViewsPerDay' in df_final.columns:
+        print("\n--- Visualização do Resultado Final (Ordenado por Views/Dia) ---")
+        print(df_final.sort_values(by='ViewsPerDay', ascending=False)[display_cols_exist].head(10).to_string(index=False))
+    elif display_cols_exist:
+         print("\n--- Visualização do Resultado Final ---")
+         print(df_final[display_cols_exist].head(10).to_string(index=False))
+    else:
+        print("\n--- Visualização do Resultado Final (DataFrame vazio ou sem colunas) ---")
+        print(df_final.head(10).to_string(index=False))
+
 
 if __name__ == "__main__":
     main()
