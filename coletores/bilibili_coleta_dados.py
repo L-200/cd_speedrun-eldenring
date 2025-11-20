@@ -12,49 +12,53 @@ headers = {
 
     
 def get_bilibili_stats(bvid_video, contexto):
-    """
-    Busca os dados do vídeo na API publica do Bilibili, extrai algumas métricas
-    (views, danmaku, likes) e informações do criador, retorna um dicionário 
-    pronto para analise. Retorna None em caso de erro na conexão ou na API.
-    """
     api_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid_video}"
 
     try:
         response = requests.get(api_url, headers=headers)
-        response.raise_for_status() # lança exceçao pra outros erros HTTP
+        response.raise_for_status()
         dados = response.json()
+
+        if dados.get("code") == 62002:
+            print(f"Vídeo {bvid_video} invisível/privado (62002)")
+            return {
+                "bvid": bvid_video,
+                "context_video": contexto,
+                "erro": "invisivel_62002"
+            }
 
         if dados.get("code") == 0 and "stat" in dados["data"]:
             dados = dados.get("data")
             criador = dados["owner"].get("mid")
             link = f"https://space.bilibili.com/{criador}"
-            # como tem muito dado e o json é imenso, retorna so alguns, podemos mudar dps
             return {
                 "bvid": dados.get("bvid"),
                 "context_video": contexto,
                 "title": dados.get("title"),
                 "name_streamer": dados["owner"].get("name"),
                 "link_channel": link,
-                # tem que tratar a data pq ela vem fora do nosso padrao
                 "data_publicacao": time.strftime('%Y-%m-%d', time.localtime(dados.get("pubdate"))),
                 "views": dados["stat"].get("view"),
                 "likes": dados["stat"].get("like"),
-                "danmaku": dados["stat"].get("danmaku"), 
+                "danmaku": dados["stat"].get("danmaku"),
                 "coins": dados["stat"].get("coin"),
                 "shares": dados["stat"].get("share"),
                 "favorites": dados["stat"].get("favorite"),
                 "comments": dados["stat"].get("reply")
             }
+
         elif dados.get("code") != 0:
             print(f"Erro na API Bilibili (código {dados.get('code')}): {dados.get('message')}")
             return None
+
         else:
-            print("Estrutura nao é json")
+            print("Estrutura não é JSON compatível")
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"Erro de Conexão: {e}")
+        print(f"Erro de conexão: {e}")
         return None
+
 
 def main():
     """
