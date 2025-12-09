@@ -17,7 +17,7 @@
 
 3) Execute o Notebook.
 
-### 3-EDA e 4-Limpeza_IA
+### 3-EDA e 4-IA
 
 1) Faça upload do Notebook para o Google Colab;
 
